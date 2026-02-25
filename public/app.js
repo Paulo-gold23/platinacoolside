@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3000';
+const API_URL = 'https://platinacoolside.onrender.com';
 
 const playerSelect = document.getElementById('playerSelect');
 const gameNameInput = document.getElementById('gameName');
