@@ -117,45 +117,52 @@ async function searchHLTB(userQuery) {
 
             const gameDataList = await page.evaluate(() => {
                 const res = [];
-                // Identifica especificamente os links que levam para um jogo, ignorando barra de navegação "Submit", "Forum", etc
-                const elements = document.querySelectorAll('a[href^="/game/"]');
-                const seenTitles = new Set();
-
-                for (let el of elements) {
-                    const title = el.innerText ? el.innerText.trim() : '';
-                    // Ignora itens com números na home do jogo ou vazios (ex: /game/12345/reviews)
-                    if (title && title.length > 0 && !title.match(/^\d+$/) && !title.toLowerCase().includes('we found')) {
-                        let parent = el.parentElement;
-                        let attempts = 0;
-                        let textFound = false;
-
-                        while (parent && attempts < 5) {
-                            const text = parent.innerText || '';
-                            if (text.includes('Completionist') || text.includes('Main Story') || text.includes('Main +')) {
-                                textFound = true;
-                                if (!seenTitles.has(title) && title !== 'Completionist' && title !== 'Main Story' && title !== 'Main + Extras') {
-                                    let imgUrl = null;
-                                    const imgEle = parent.querySelector('img');
-                                    if (imgEle) {
-                                        imgUrl = imgEle.src;
-                                    }
-
-                                    seenTitles.add(title);
-                                    res.push({
-                                        title: title,
-                                        fullText: text,
-                                        imageUrl: imgUrl,
-                                        url: el.href
-                                    });
-                                }
-                                break;
+                // Estratégia Blindada: Encontrar as listas (ul) resultantes e pegar as (li) que tenham link de jogo
+                const lists = document.querySelectorAll('ul');
+                for (let ul of lists) {
+                    const items = ul.querySelectorAll('li');
+                    for (let li of items) {
+                        const a = li.querySelector('a[href^="/game/"]');
+                        if (a) {
+                            const rawTitle = a.getAttribute('title') || a.innerText || li.innerText.split('\\n')[0];
+                            let cleanedTitle = rawTitle.trim();
+                            // Se vier com o tempo inserido pela estrutura da página, limpamos a sujeira
+                            if (cleanedTitle.includes('Main Story')) {
+                                cleanedTitle = cleanedTitle.split('Main Story')[0].trim();
+                            } else if (cleanedTitle.includes('\\n')) {
+                                cleanedTitle = cleanedTitle.split('\\n')[0].trim();
                             }
-                            parent = parent.parentElement;
-                            attempts++;
+
+                            // Rejeita links lixo e botões
+                            if (cleanedTitle && !cleanedTitle.match(/^\d+$/) && !cleanedTitle.toLowerCase().includes('we found') && cleanedTitle.toLowerCase() !== 'add to profile') {
+                                let imgUrl = null;
+                                const imgEle = li.querySelector('img');
+                                if (imgEle) {
+                                    imgUrl = imgEle.src;
+                                }
+
+                                res.push({
+                                    title: cleanedTitle,
+                                    fullText: li.innerText || '',
+                                    imageUrl: imgUrl,
+                                    url: a.href
+                                });
+                            }
                         }
                     }
                 }
-                return res.slice(0, 5);
+
+                // Filtrar repetições mantendo a ordem de relevância
+                const uniqueRes = [];
+                const seenTitles = new Set();
+                for (let item of res) {
+                    if (!seenTitles.has(item.title)) {
+                        seenTitles.add(item.title);
+                        uniqueRes.push(item);
+                    }
+                }
+
+                return uniqueRes.slice(0, 5);
             });
 
             if (gameDataList.length > 0) {
