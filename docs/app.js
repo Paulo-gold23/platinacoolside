@@ -1,4 +1,4 @@
-const API_URL = 'https://platinacoolside.onrender.com';
+const API_URL = 'https://motor-platinacoolside.onrender.com';
 
 const playerSelect = document.getElementById('playerSelect');
 const gameNameInput = document.getElementById('gameName');
