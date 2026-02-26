@@ -156,7 +156,7 @@ searchGameForm.addEventListener('submit', async (e) => {
                 <img src="${game.imageUrl}" alt="Capa" class="game-card-img" onerror="this.src='https://howlongtobeat.com/img/hltb_brand.png'">
                 <div class="game-card-info">
                     <div class="game-card-title">${game.gameName}</div>
-                    <div class="game-card-hours">Main Story: <strong>${game.hours} Horas</strong></div>
+                    <div class="game-card-hours">Tempo de Platina: <strong>${game.hours} Horas</strong></div>
                 </div>
                 <button type="button" class="btn-choose">ESCOLHER</button>
             `;
