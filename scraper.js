@@ -22,6 +22,7 @@ async function getCorrectGameNameViaDDG(query) {
             const title = $(el).text();
             if (title.toLowerCase().includes('howlongtobeat')) {
                 correctName = title.replace(/ -( )?HowLongToBeat/gi, '')
+                    .replace(/ \| HowLongToBeat/gi, '')
                     .replace(/HowLongToBeat:( )?/gi, '')
                     .replace(/How long is /gi, '')
                     .replace(/\?/g, '')
@@ -71,11 +72,16 @@ async function searchHLTB(userQuery) {
             });
 
             let hours = 0;
-            const mainStoryMatch = gameData.fullText.match(/Main Story\n?.*?(\d+(?:½|\.\d+)?)\s*Hours/i)
+            // Busca com prioridade do maior engajamento (Platina)
+            const completionistMatch = gameData.fullText.match(/Completionist\n?.*?(\d+(?:½|\.\d+)?)\s*Hours/i)
+                || gameData.fullText.match(/Completionist\s*(\d+(?:½|\.\d+)?)/i)
+                || gameData.fullText.match(/Main \+ Extras\n?.*?(\d+(?:½|\.\d+)?)\s*Hours/i)
+                || gameData.fullText.match(/Main \+ Extras\s*(\d+(?:½|\.\d+)?)/i)
+                || gameData.fullText.match(/Main Story\n?.*?(\d+(?:½|\.\d+)?)\s*Hours/i)
                 || gameData.fullText.match(/Main Story\s*(\d+(?:½|\.\d+)?)/i);
 
-            if (mainStoryMatch && mainStoryMatch[1]) {
-                let numStr = mainStoryMatch[1].replace('½', '.5');
+            if (completionistMatch && completionistMatch[1]) {
+                let numStr = completionistMatch[1].replace('½', '.5');
                 hours = parseFloat(numStr);
             }
 
@@ -111,27 +117,27 @@ async function searchHLTB(userQuery) {
 
             const gameDataList = await page.evaluate(() => {
                 const res = [];
-                const elements = document.querySelectorAll('h3, a');
+                // Identifica especificamente os links que levam para um jogo, ignorando barra de navegação "Submit", "Forum", etc
+                const elements = document.querySelectorAll('a[href^="/game/"]');
                 const seenTitles = new Set();
 
                 for (let el of elements) {
-                    if (el.innerText && el.innerText.trim().length > 0) {
+                    const title = el.innerText ? el.innerText.trim() : '';
+                    // Ignora itens com números na home do jogo ou vazios (ex: /game/12345/reviews)
+                    if (title && title.length > 0 && !title.match(/^\d+$/) && !title.toLowerCase().includes('we found')) {
                         let parent = el.parentElement;
                         let attempts = 0;
+                        let textFound = false;
+
                         while (parent && attempts < 5) {
-                            const text = parent.innerText;
-                            if (text.includes('Main Story') || text.includes('Main +')) {
-                                const title = el.innerText.trim();
-                                if (!seenTitles.has(title) && title !== 'Main Story' && title !== 'Main +') {
+                            const text = parent.innerText || '';
+                            if (text.includes('Completionist') || text.includes('Main Story') || text.includes('Main +')) {
+                                textFound = true;
+                                if (!seenTitles.has(title) && title !== 'Completionist' && title !== 'Main Story' && title !== 'Main + Extras') {
                                     let imgUrl = null;
                                     const imgEle = parent.querySelector('img');
                                     if (imgEle) {
                                         imgUrl = imgEle.src;
-                                    }
-                                    let link = null;
-                                    const linkEle = parent.tagName === 'A' ? parent : parent.querySelector('a');
-                                    if (linkEle) {
-                                        link = linkEle.href;
                                     }
 
                                     seenTitles.add(title);
@@ -139,7 +145,7 @@ async function searchHLTB(userQuery) {
                                         title: title,
                                         fullText: text,
                                         imageUrl: imgUrl,
-                                        url: link
+                                        url: el.href
                                     });
                                 }
                                 break;
@@ -155,10 +161,13 @@ async function searchHLTB(userQuery) {
             if (gameDataList.length > 0) {
                 for (let game of gameDataList) {
                     let hours = 0;
-                    const mainStoryMatch = game.fullText.match(/Main Story\s*(\d+(?:½|\.\d+)?)/i);
+                    // Procura em ordem de completude de platina
+                    const completionistMatch = game.fullText.match(/Completionist\s*(\d+(?:½|\.\d+)?)/i)
+                        || game.fullText.match(/Main \+ Extras\s*(\d+(?:½|\.\d+)?)/i)
+                        || game.fullText.match(/Main Story\s*(\d+(?:½|\.\d+)?)/i);
 
-                    if (mainStoryMatch && mainStoryMatch[1]) {
-                        let numStr = mainStoryMatch[1].replace('½', '.5');
+                    if (completionistMatch && completionistMatch[1]) {
+                        let numStr = completionistMatch[1].replace('½', '.5');
                         hours = parseFloat(numStr);
                     }
 
