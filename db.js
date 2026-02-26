@@ -1,8 +1,22 @@
 const admin = require('firebase-admin');
 
-// Atenção: O arquivo serviceAccountKey.json será adicionado pelo usuário na raiz do projeto
+const fs = require('fs');
+
+// Atenção: O arquivo serviceAccountKey.json será adicionado pelo usuário na raiz do projeto (local)
+// ou montado dinamicamente pelo Render no caminho /etc/secrets/ (produção no Docker)
 try {
-    const serviceAccount = require('./serviceAccountKey.json');
+    let serviceAccount;
+
+    if (fs.existsSync('./serviceAccountKey.json')) {
+        serviceAccount = require('./serviceAccountKey.json');
+        console.log("Chave do Firebase carregada localmente.");
+    } else if (fs.existsSync('/etc/secrets/serviceAccountKey.json')) {
+        serviceAccount = require('/etc/secrets/serviceAccountKey.json');
+        console.log("Chave do Firebase carregada do cofre do Render (/etc/secrets/).");
+    } else {
+        throw new Error("Não encontrado local e nem no cofre.");
+    }
+
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
     });
